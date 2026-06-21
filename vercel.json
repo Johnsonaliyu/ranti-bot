@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "installCommand": "yarn install --non-interactive --production=false",
   "buildCommand": "",
   "outputDirectory": ".",
   "functions": {
