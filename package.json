@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch lib/bot-poll.ts",
-    "build": "tsc --noEmit",
+    "build": "echo 'No build step needed — Vercel handles TypeScript natively'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
