@@ -10,15 +10,15 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
-    "grammy": "^1.36.3",
-    "ws": "^8.21.0"
-  },
-  "devDependencies": {
     "@types/node": "^22.15.30",
     "@types/ws": "^8.18.1",
     "@vercel/node": "^5.1.14",
-    "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "grammy": "^1.36.3",
+    "typescript": "^5.8.3",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4"
   },
   "engines": {
     "node": "20.x"
