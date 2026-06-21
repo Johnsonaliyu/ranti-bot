@@ -1,0 +1,24 @@
+{
+  "name": "ranti-v2",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch lib/bot-poll.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "grammy": "^1.36.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@vercel/node": "^5.1.14",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
