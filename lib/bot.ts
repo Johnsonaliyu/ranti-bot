@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, Context, InlineKeyboard } from "grammy";
 import { chat } from "./ai.js";
 import { getHistory, saveHistory, clearHistory, addMessage } from "./memory.js";
 import { getWeather } from "./weather.js";
@@ -344,7 +344,7 @@ bot.on("message:text", async (ctx) => {
 });
 
 // ── Helper: search jobs and reply ────────────────────────────────────────────
-async function searchAndReply(ctx: Parameters<typeof bot.on>[1], category: JobCategory) {
+async function searchAndReply(ctx: Context, category: JobCategory) {
   try {
     const jobs = await scrapeJobs(category);
     const saved = await saveJobs(jobs);

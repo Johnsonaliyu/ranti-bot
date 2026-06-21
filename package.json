@@ -14,8 +14,7 @@
     "@types/ws": "^8.18.1",
     "@vercel/node": "^5.1.14",
     "grammy": "^1.36.3",
-    "typescript": "^5.8.3",
-    "ws": "^8.21.0"
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "tsx": "^4.19.4"
