@@ -22,12 +22,30 @@ create table if not exists ranti_jobs (
   unique(title, company)
 );
 
--- 3. Enable Row Level Security (RLS) — allow anon key to read/write
+-- 3. Reminders table
+create table if not exists ranti_reminders (
+  id uuid primary key default gen_random_uuid(),
+  chat_id bigint not null,
+  message text not null,
+  remind_at timestamptz not null,
+  sent boolean not null default false,
+  created_at timestamptz default now()
+);
+
+create index if not exists ranti_reminders_due_idx
+  on ranti_reminders (sent, remind_at)
+  where sent = false;
+
+-- 4. Enable Row Level Security (RLS) — allow anon key to read/write
 alter table ranti_memory enable row level security;
 alter table ranti_jobs enable row level security;
+alter table ranti_reminders enable row level security;
 
 create policy "Allow all for anon" on ranti_memory
   for all using (true) with check (true);
 
 create policy "Allow all for anon" on ranti_jobs
+  for all using (true) with check (true);
+
+create policy "Allow all for anon" on ranti_reminders
   for all using (true) with check (true);

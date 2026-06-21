@@ -11,6 +11,12 @@ import {
   type JobCategory,
 } from "./jobs.js";
 import { SYSTEM_PROMPT } from "./prompt.js";
+import {
+  parseRemindInput,
+  saveReminder,
+  getPendingReminders,
+  deleteReminder,
+} from "./reminders.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) throw new Error("TELEGRAM_BOT_TOKEN not set");
@@ -47,6 +53,10 @@ bot.command("help", async (ctx) => {
       `🌤 *Weather*\n` +
       `/weather — Abuja weather\n` +
       `/weather Lagos — Any city\n\n` +
+      `⏰ *Reminders*\n` +
+      `/remind 30m Call client — Set a reminder\n` +
+      `/reminders — View pending reminders\n` +
+      `/unremind <ID> — Cancel a reminder\n\n` +
       `⚙️ *Settings*\n` +
       `/clear — Clear conversation memory\n` +
       `/status — Check AI provider status\n\n` +
@@ -140,6 +150,108 @@ bot.command("saved", async (ctx) => {
   const input = ctx.match?.trim().toLowerCase() as JobCategory | undefined;
   const jobs = await getSavedJobs(input || undefined);
   await ctx.reply(formatJobs(jobs, input || "ALL"), { parse_mode: "Markdown" });
+});
+
+// ── /remind [time] [message] ──────────────────────────────────────────────────
+bot.command("remind", async (ctx) => {
+  const input = ctx.match?.trim() ?? "";
+
+  if (!input) {
+    await ctx.reply(
+      `⏰ *How to set a reminder:*\n\n` +
+        `/remind 30m Call the client\n` +
+        `/remind 2h Submit the report\n` +
+        `/remind 1d Follow up with Ade\n\n` +
+        `Units: *m* = minutes, *h* = hours, *d* = days`,
+      { parse_mode: "Markdown" },
+    );
+    return;
+  }
+
+  const parsed = parseRemindInput(input);
+  if (!parsed) {
+    await ctx.reply(
+      `❌ Couldn't understand that format.\n\nTry: /remind 30m Call client`,
+    );
+    return;
+  }
+
+  const remindAt = new Date(Date.now() + parsed.ms);
+  await saveReminder(ctx.chat.id, parsed.message, remindAt);
+
+  const timeStr = remindAt.toLocaleTimeString("en-NG", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Africa/Lagos",
+  });
+  const dateStr = remindAt.toLocaleDateString("en-NG", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "Africa/Lagos",
+  });
+
+  await ctx.reply(
+    `✅ *Reminder set!*\n\n📝 "${parsed.message}"\n🕐 ${dateStr} at ${timeStr} (WAT)`,
+    { parse_mode: "Markdown" },
+  );
+});
+
+// ── /reminders ────────────────────────────────────────────────────────────────
+bot.command("reminders", async (ctx) => {
+  const reminders = await getPendingReminders(ctx.chat.id);
+
+  if (!reminders.length) {
+    await ctx.reply("You have no pending reminders. Use /remind to add one!");
+    return;
+  }
+
+  const list = reminders
+    .map((r, i) => {
+      const d = new Date(r.remind_at);
+      const timeStr = d.toLocaleString("en-NG", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Africa/Lagos",
+      });
+      return `${i + 1}. 📝 *${r.message}*\n   🕐 ${timeStr} WAT\n   ID: \`${r.id.slice(0, 8)}\``;
+    })
+    .join("\n\n");
+
+  await ctx.reply(
+    `⏰ *Your Pending Reminders (${reminders.length})*\n\n${list}\n\n_Use /unremind <ID> to cancel one._`,
+    { parse_mode: "Markdown" },
+  );
+});
+
+// ── /unremind [id] ────────────────────────────────────────────────────────────
+bot.command("unremind", async (ctx) => {
+  const input = ctx.match?.trim() ?? "";
+
+  if (!input) {
+    await ctx.reply("Usage: /unremind <ID>\n\nGet IDs from /reminders");
+    return;
+  }
+
+  const reminders = await getPendingReminders(ctx.chat.id);
+  const match = reminders.find((r) => r.id.startsWith(input));
+
+  if (!match) {
+    await ctx.reply(`❌ No pending reminder found with ID starting with \`${input}\``, {
+      parse_mode: "Markdown",
+    });
+    return;
+  }
+
+  const deleted = await deleteReminder(match.id, ctx.chat.id);
+  if (deleted) {
+    await ctx.reply(`🗑 Reminder cancelled:\n"${match.message}"`);
+  } else {
+    await ctx.reply("❌ Could not cancel that reminder. Try again.");
+  }
 });
 
 // ── /clear ────────────────────────────────────────────────────────────────────
