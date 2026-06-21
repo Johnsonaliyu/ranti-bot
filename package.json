@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
-    "grammy": "^1.36.3"
+    "@types/ws": "^8.18.1",
+    "grammy": "^1.36.3",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.30",
