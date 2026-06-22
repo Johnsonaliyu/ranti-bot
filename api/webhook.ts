@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { bot } from "../lib/bot.js";
 
+let botReady = false;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") {
-    return res.status(200).json({ status: "Ranti Bot is running ✅" });
+    return res.status(200).json({ status: "Ranti Bot is running" });
   }
 
   if (req.method !== "POST") {
@@ -11,12 +13,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const update = req.body;
-    await bot.handleUpdate(update);
+    if (!botReady) {
+      await bot.init();
+      botReady = true;
+    }
+    await bot.handleUpdate(req.body);
   } catch (err) {
-    console.error("[webhook] Error handling update:", err);
+    console.error("[webhook] unhandled error:", err);
   }
 
-  // Always return 200 to Telegram — even on error — so it doesn't retry endlessly
   return res.status(200).json({ ok: true });
 }

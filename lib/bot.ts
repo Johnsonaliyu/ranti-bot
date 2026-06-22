@@ -316,31 +316,34 @@ bot.on("message:text", async (ctx) => {
   const userText = ctx.message.text;
   const chatId = ctx.chat.id;
 
-  // Show typing indicator
-  await ctx.api.sendChatAction(chatId, "typing");
-
   try {
-    // Load history and add new user message
+    await ctx.api.sendChatAction(chatId, "typing");
+
     const history = await getHistory(chatId);
     history.push({ role: "user", content: userText });
 
-    // Build messages with system prompt
     const messages = [{ role: "system" as const, content: SYSTEM_PROMPT }, ...history];
 
-    // Call AI
     const reply = await chat(messages);
 
-    // Save both turns to memory
     history.push({ role: "assistant", content: reply });
     await saveHistory(chatId, history);
 
     await ctx.reply(reply, { parse_mode: "Markdown" });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    await ctx.reply(
-      `❌ ${msg}\n\nPlease try again in a moment.`,
-    );
+    console.error("[message:text] error:", err);
+    try {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      await ctx.reply(`Sorry, something went wrong: ${msg}`);
+    } catch {
+      console.error("[message:text] could not send error reply");
+    }
   }
+});
+
+// ── Global error handler ──────────────────────────────────────────────────────
+bot.catch((err) => {
+  console.error("[grammY global error]", err.message, err.error);
 });
 
 // ── Helper: search jobs and reply ────────────────────────────────────────────
