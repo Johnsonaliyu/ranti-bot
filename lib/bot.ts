@@ -1,6 +1,6 @@
 import { Bot, Context, InlineKeyboard } from "grammy";
 import { chat } from "./ai.js";
-import { getHistory, saveHistory, clearHistory, addMessage } from "./memory.js";
+import { getHistory, saveHistory, clearHistory } from "./memory.js";
 import { getWeather } from "./weather.js";
 import {
   scrapeJobs,
@@ -17,6 +17,9 @@ import {
   getPendingReminders,
   deleteReminder,
 } from "./reminders.js";
+import { getPrayerTimes } from "./prayer.js";
+import { getExchangeRates } from "./exchange.js";
+import { saveNote, getNotes, deleteNote } from "./notes.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) throw new Error("TELEGRAM_BOT_TOKEN not set");
@@ -44,22 +47,31 @@ bot.command("help", async (ctx) => {
     `*Ranti Commands*\n\n` +
       `💼 *Jobs*\n` +
       `/jobs sales — Sales jobs in Abuja\n` +
-      `/jobs coding — Vibe coding / tech jobs\n` +
+      `/jobs coding — Tech / coding jobs\n` +
       `/jobs teacher — Geography teacher jobs\n` +
       `/jobs analyst — Data analyst jobs\n` +
-      `/jobs collector — Data collector jobs\n` +
-      `/alljobs — Search all 5 categories\n` +
+      `/alljobs — Search all categories\n` +
       `/saved — View saved job listings\n\n` +
       `🌤 *Weather*\n` +
       `/weather — Abuja weather\n` +
       `/weather Lagos — Any city\n\n` +
+      `🕌 *Prayer Times*\n` +
+      `/pray — Abuja prayer times today\n` +
+      `/pray Kano — Any city\n\n` +
+      `💱 *Exchange Rates*\n` +
+      `/exchange — NGN, USD, GBP, EUR rates\n\n` +
+      `📝 *Notes*\n` +
+      `/note <text> — Save a quick note\n` +
+      `/notes — View all your notes\n` +
+      `/delnote <ID> — Delete a note\n\n` +
       `⏰ *Reminders*\n` +
       `/remind 30m Call client — Set a reminder\n` +
       `/reminders — View pending reminders\n` +
       `/unremind <ID> — Cancel a reminder\n\n` +
-      `⚙️ *Settings*\n` +
+      `⚙️ *Other*\n` +
       `/clear — Clear conversation memory\n` +
-      `/status — Check AI provider status\n\n` +
+      `/status — Check AI provider status\n` +
+      `/debug — Full system diagnostics\n\n` +
       `Or just chat normally — I remember our conversation! 💬`,
     { parse_mode: "Markdown" },
   );
@@ -296,6 +308,121 @@ bot.command("status", async (ctx) => {
     `*AI Provider Status*\n\n${results.join("\n")}\n\n_Groq is primary. Nvidia is fallback._`,
     { parse_mode: "Markdown" },
   );
+});
+
+// ── /pray ─────────────────────────────────────────────────────────────────────
+bot.command("pray", async (ctx) => {
+  const city = ctx.match?.trim() || "Abuja";
+  const msg = await ctx.reply(`⏳ Fetching prayer times for *${city}*...`, { parse_mode: "Markdown" });
+  const result = await getPrayerTimes(city);
+  await ctx.api.editMessageText(ctx.chat.id, msg.message_id, result, { parse_mode: "Markdown" });
+});
+
+// ── /exchange ─────────────────────────────────────────────────────────────────
+bot.command("exchange", async (ctx) => {
+  const msg = await ctx.reply("⏳ Fetching exchange rates...");
+  const result = await getExchangeRates();
+  await ctx.api.editMessageText(ctx.chat.id, msg.message_id, result, { parse_mode: "Markdown" });
+});
+
+// ── /note [text] ──────────────────────────────────────────────────────────────
+bot.command("note", async (ctx) => {
+  const text = ctx.match?.trim() ?? "";
+  if (!text) {
+    await ctx.reply(
+      `📝 *How to save a note:*\n\n/note Buy airtime for Mum\n/note Meeting at 2pm tomorrow\n\nUse /notes to view all notes.`,
+      { parse_mode: "Markdown" },
+    );
+    return;
+  }
+  await saveNote(ctx.chat.id, text);
+  await ctx.reply(`✅ Note saved:\n"${text}"\n\nUse /notes to view all your notes.`);
+});
+
+// ── /notes ────────────────────────────────────────────────────────────────────
+bot.command("notes", async (ctx) => {
+  const notes = await getNotes(ctx.chat.id);
+  if (!notes.length) {
+    await ctx.reply("You have no saved notes. Use /note <text> to add one.");
+    return;
+  }
+  const list = notes
+    .map((n, i) => {
+      const d = new Date(n.created_at).toLocaleDateString("en-NG", {
+        day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+        timeZone: "Africa/Lagos",
+      });
+      return `${i + 1}. ${n.text}\n   _${d}_ | ID: \`${n.id.slice(0, 8)}\``;
+    })
+    .join("\n\n");
+  await ctx.reply(`📝 *Your Notes (${notes.length})*\n\n${list}\n\n_Use /delnote <ID> to delete one._`, {
+    parse_mode: "Markdown",
+  });
+});
+
+// ── /delnote [id] ─────────────────────────────────────────────────────────────
+bot.command("delnote", async (ctx) => {
+  const input = ctx.match?.trim() ?? "";
+  if (!input) {
+    await ctx.reply("Usage: /delnote <ID>\n\nGet IDs from /notes");
+    return;
+  }
+  const notes = await getNotes(ctx.chat.id);
+  const match = notes.find((n) => n.id.startsWith(input));
+  if (!match) {
+    await ctx.reply(`❌ No note found with ID starting with \`${input}\``, { parse_mode: "Markdown" });
+    return;
+  }
+  const deleted = await deleteNote(match.id, ctx.chat.id);
+  await ctx.reply(deleted ? `🗑 Note deleted:\n"${match.text}"` : "❌ Could not delete that note.");
+});
+
+// ── /debug ────────────────────────────────────────────────────────────────────
+bot.command("debug", async (ctx) => {
+  const msg = await ctx.reply("🔍 Running diagnostics...");
+  const checks: string[] = [];
+
+  // Bot token
+  const tok = process.env.TELEGRAM_BOT_TOKEN;
+  checks.push(tok ? `✅ Bot token — set` : `❌ Bot token — MISSING`);
+
+  // Supabase
+  const sbUrl = process.env.SUPABASE_URL;
+  const sbKey = process.env.SUPABASE_ANON_KEY;
+  checks.push(sbUrl && sbKey ? `✅ Supabase — env vars set` : `❌ Supabase — MISSING env vars`);
+
+  // Test Supabase connectivity
+  try {
+    const start = Date.now();
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(sbUrl!, sbKey!);
+    const { error } = await sb.from("ranti_memory").select("chat_id").limit(1);
+    checks.push(error
+      ? `⚠️ Supabase query — ${error.message}`
+      : `✅ Supabase query — ok (${Date.now() - start}ms)`);
+  } catch (e) {
+    checks.push(`❌ Supabase — ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Groq
+  const groqKey = process.env.GROQ_API_KEY;
+  checks.push(groqKey ? `✅ GROQ_API_KEY — set` : `❌ GROQ_API_KEY — MISSING`);
+  try {
+    const start = Date.now();
+    const r = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: `Bearer ${groqKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    checks.push(r.ok ? `✅ Groq API — online (${Date.now() - start}ms)` : `❌ Groq API — ${r.status}`);
+  } catch {
+    checks.push(`❌ Groq API — unreachable`);
+  }
+
+  // Node version
+  checks.push(`ℹ️ Node.js — ${process.version}`);
+
+  const text = `*Ranti Debug Report*\n\n${checks.join("\n")}`;
+  await ctx.api.editMessageText(ctx.chat.id, msg.message_id, text, { parse_mode: "Markdown" });
 });
 
 // ── Inline keyboard callbacks ─────────────────────────────────────────────────

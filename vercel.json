@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/daily-jobs",
       "schedule": "0 6 * * 1-6"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "* * * * *"
     }
   ]
 }
