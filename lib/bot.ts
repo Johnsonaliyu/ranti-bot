@@ -329,7 +329,11 @@ bot.on("message:text", async (ctx) => {
     history.push({ role: "assistant", content: reply });
     await saveHistory(chatId, history);
 
-    await ctx.reply(reply, { parse_mode: "Markdown" });
+    try {
+      await ctx.reply(reply, { parse_mode: "Markdown" });
+    } catch {
+      await ctx.reply(reply);
+    }
   } catch (err) {
     console.error("[message:text] error:", err);
     try {
